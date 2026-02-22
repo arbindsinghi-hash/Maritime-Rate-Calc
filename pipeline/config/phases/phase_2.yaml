@@ -1,0 +1,7 @@
+# Optional overrides for Offline Ingestion DAG
+# Merged with pipeline.yaml phase_2.config when present
+ingestion:
+  repair_confidence_threshold: 0.8
+  repair_max_retries: 3
+  golden_yaml_path: "storage/yaml/tariff_rules_golden.yaml"
+  # DOC_PARSER, INSTRUCT, LLM endpoints from .env

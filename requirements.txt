@@ -1,0 +1,30 @@
+# Web Framework
+fastapi>=0.104.1
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
+# Audit Storage (JSONL file-based — no database required)
+
+# Configuration & Validation
+pydantic>=2.5.2
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# LLM / OpenAI-compatible clients
+openai>=1.6.1
+
+# Vector DB & Embeddings
+faiss-cpu>=1.7.4
+
+# LLM Orchestration  (must share a compatible langchain-core)
+langchain>=0.3.0
+langgraph>=0.3.1
+
+# PDF Processing & Data Manipulation
+PyMuPDF>=1.23.7
+pandas>=2.1.3
+pyyaml>=6.0.1
+
+# Testing
+pytest>=7.4.3
+httpx>=0.25.2

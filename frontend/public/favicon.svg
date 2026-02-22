@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d47a1"/>
+      <stop offset="100%" style="stop-color:#1976d2"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#0d47a1;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#1976d2;stop-opacity:0.15"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="6" fill="url(#fg)"/>
+  <!-- Anchor -->
+  <g fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="16" cy="7" r="2.2"/>
+    <path d="M16 9.2v6M13 15.2h6M16 15.2l-3 6 3-2 3 2z"/>
+  </g>
+  <!-- Sea -->
+  <path fill="url(#sea)" d="M2 24c1.5-.8 2.5-.8 4 0 1.5.8 2.5.8 4 0 1.5-.8 2.5-.8 4 0 1.5.8 2.5.8 4 0 1.5-.8 2.5-.8 4 0v4H2z"/>
+</svg>

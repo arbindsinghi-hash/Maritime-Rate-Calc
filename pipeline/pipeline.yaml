@@ -1,0 +1,192 @@
+# MRCA AI Tariff — Implementation Pipeline
+# YAML-configured, modular, containerized pipeline
+# Run: python pipeline/runner.py [--phase N] [--list]  or via Docker: see pipeline/README.md
+
+name: mrca-ai-tariff-pipeline
+version: "1.0"
+description: End-to-end implementation pipeline
+
+# Global env (override via env file or host)
+env:
+  PROJECT_ROOT: "."  # relative to mrca-ai-tariff
+  COMPOSE_FILE: "docker-compose.yml"
+  PYTEST_ARGS: "-v --tb=short"
+
+# Container images used by steps (optional: run step in container)
+containers:
+  backend:
+    build: "."
+    dockerfile: Dockerfile
+    context: "."
+
+# Each phase has steps and verification
+phases:
+  - id: phase_1
+    name: Infrastructure
+    plan_ref: "Step 1"
+    tasks_ref: "1.1-1.9"
+    depends_on: []
+    parallel: false
+    steps:
+      - id: ensure_audit_dir
+        name: Ensure JSONL audit directory exists
+        run: "mkdir -p storage/audit"
+        container: host
+        required: true
+      - id: verify_phase_1
+        name: Verify infrastructure (scaffold, config, audit store, schemas, FAISS, FastAPI)
+        run: "python -m pytest tests/verify_tasks.py::TestPhase1Infrastructure -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase1Infrastructure"
+      pytest_path: "tests/verify_tasks.py"
+
+  - id: phase_2
+    name: Offline Ingestion DAG (LangGraph)
+    plan_ref: "Step 2"
+    tasks_ref: "2.1-2.9"
+    depends_on: [phase_1]
+    parallel: false
+    agent_hint: "Implement PDF parser, table extract, clause mapping, schema validation, LLM reviewer, repair loop, persist, LangGraph DAG"
+    steps:
+      - id: verify_phase_2
+        name: Verify ingestion (nodes and DAG)
+        run: "python -m pytest tests/verify_tasks.py::TestPhase2Ingestion -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase2Ingestion"
+      pytest_path: "tests/verify_tasks.py"
+    config:
+      ingestion:
+        repair_confidence_threshold: 0.8
+        repair_max_retries: 3
+        golden_yaml_path: "storage/yaml/tariff_rules_golden.yaml"
+
+  - id: phase_3
+    name: Deterministic Tariff Engine
+    plan_ref: "Step 3"
+    tasks_ref: "3.1-3.10"
+    depends_on: [phase_1]
+    parallel: false
+    agent_hint: "Implement YAML rule schema, rule loader, Light/Port/Towage/VTS/Pilotage/Running Lines calculations, reductions/caps/VAT, full total"
+    steps:
+      - id: verify_phase_3
+        name: Verify tariff engine (golden totals)
+        run: "python -m pytest tests/verify_tasks.py::TestPhase3TariffEngine -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase3TariffEngine"
+      pytest_path: "tests/verify_tasks.py"
+    config:
+      engine:
+        yaml_dir: "storage/yaml"
+        version: "latest"
+        golden_tolerance_pct: 1.0
+
+  - id: phase_4
+    name: Citation Service
+    plan_ref: "Step 4"
+    tasks_ref: "4.1-4.3"
+    depends_on: [phase_1]
+    parallel: false
+    agent_hint: "Implement citation storage (page, section, bbox), CitationService.get(charge_name), PDF page extract for frontend"
+    steps:
+      - id: verify_phase_4
+        name: Verify citation service
+        run: "python -m pytest tests/verify_tasks.py::TestPhase4Citation -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase4Citation"
+      pytest_path: "tests/verify_tasks.py"
+
+  - id: phase_5
+    name: FastAPI Endpoints
+    plan_ref: "Step 5"
+    tasks_ref: "5.1-5.5"
+    depends_on: [phase_1, phase_3]
+    parallel: false
+    agent_hint: "Implement POST /api/v1/calculate, /chat, /ingest, GET /api/v1/audit/{id}, error handling 422"
+    steps:
+      - id: verify_phase_5
+        name: Verify API endpoints
+        run: "python -m pytest tests/verify_tasks.py::TestPhase5API -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase5API"
+      pytest_path: "tests/verify_tasks.py"
+
+  - id: phase_6
+    name: React Frontend
+    plan_ref: "Step 6"
+    tasks_ref: "6.1-6.6"
+    depends_on: [phase_5]
+    parallel: false
+    agent_hint: "Chat interface, structured form, breakdown table, PDF viewer with citation highlight, audit trail panel"
+    steps:
+      - id: frontend_build
+        name: Build frontend
+        run: "cd frontend && npm ci && npm run build"
+        container: host
+        required: true
+      - id: verify_phase_6
+        name: Verify frontend structure
+        run: "python -m pytest tests/verify_tasks.py::TestPhase6Frontend -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase6Frontend"
+      pytest_path: "tests/verify_tasks.py"
+
+  - id: phase_7
+    name: Testing & Evals
+    plan_ref: "Step 7"
+    tasks_ref: "7.1-7.4"
+    depends_on: [phase_3, phase_5]
+    parallel: false
+    agent_hint: "Engine unit tests, API integration tests, eval_ingestion.py, eval_response.py"
+    steps:
+      - id: engine_tests
+        name: Engine unit tests
+        run: "python -m pytest tests/test_engine.py -v --tb=short"
+        container: backend
+        required: false
+      - id: api_tests
+        name: API integration tests
+        run: "python -m pytest tests/test_api.py -v --tb=short"
+        container: backend
+        required: false
+      - id: verify_phase_7
+        name: Verify eval scripts exist
+        run: "python -m pytest tests/verify_tasks.py::TestPhase7Evals -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase7Evals"
+      pytest_path: "tests/verify_tasks.py"
+
+  - id: phase_8
+    name: Documentation & Deployment
+    plan_ref: "Step 8"
+    tasks_ref: "8.1-8.3"
+    depends_on: [phase_6]
+    parallel: false
+    agent_hint: "README architecture/setup/API, docs/adding-a-port.md, deploy/deployment.yaml service.yaml pvc.yaml"
+    steps:
+      - id: verify_phase_8
+        name: Verify docs and OpenShift manifests
+        run: "python -m pytest tests/verify_tasks.py::TestPhase8Docs -v --tb=short"
+        container: backend
+        required: true
+    verification:
+      pytest_class: "TestPhase8Docs"
+      pytest_path: "tests/verify_tasks.py"
+
+# Optional: run multiple phases in parallel (phases with no dependency on each other)
+# phase_2, phase_3, phase_4 can run in parallel after phase_1
+parallel_groups:
+  - [phase_2, phase_3, phase_4]

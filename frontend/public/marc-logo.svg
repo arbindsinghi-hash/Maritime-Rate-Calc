@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" width="160" height="48" aria-hidden="true">
+  <defs>
+    <linearGradient id="marc-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d47a1"/>
+      <stop offset="100%" style="stop-color:#1976d2"/>
+    </linearGradient>
+    <linearGradient id="marc-sea" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#0d47a1;stop-opacity:0.4"/>
+      <stop offset="100%" style="stop-color:#1976d2;stop-opacity:0.12"/>
+    </linearGradient>
+  </defs>
+  <!-- Anchor: ring, shank, stock, two arms meeting at fluke -->
+  <g fill="none" stroke="url(#marc-grad)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="20" cy="8.5" r="2.6"/>
+    <path d="M20 11.1v9.2"/>
+    <path d="M13 20.3h14"/>
+    <path d="M20 20.3l-6 12 6-4 6 4z"/>
+  </g>
+  <!-- Sea / waves beneath -->
+  <path fill="url(#marc-sea)" d="M2 34.5c2.5-1.2 4-1.2 6 0 2 1.2 3.5 1.2 5.5 0 2-1.2 3.5-1.2 5.5 0 2 1.2 3.5 1.2 5.5 0 2-1.2 3.5-1.2 5.5 0 2 1.2 4 1.2 6 0v7H2z"/>
+  <path fill="none" stroke="url(#marc-grad)" stroke-width="0.85" stroke-opacity="0.55" d="M2 37.2s3 .8 6 .8 3-.8 6-.8 3 .8 6 .8 3-.8 6-.8" stroke-linecap="round"/>
+  <!-- Wordmark Marc -->
+  <text x="50" y="31" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="700" letter-spacing="0.02em" fill="#0d47a1">Marc</text>
+</svg>

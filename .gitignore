@@ -1,0 +1,78 @@
+# ==========================
+# MRCA AI Tariff — .gitignore
+# ==========================
+
+# ---- Secrets / Environment (never commit real keys) ----
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+*.pem
+*.key
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# ---- FAISS / ML artifacts ----
+storage/faiss/*.index
+storage/faiss/*.pkl
+storage/faiss/*.json
+*.faiss
+
+# ---- Data / Uploads ----
+storage/pdfs/*.pdf
+storage/yaml/*.yaml
+storage/yaml/*.yml
+!storage/yaml/tariff_rules_golden.yaml
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ---- Docker ----
+# postgres_data/ (removed — PostgreSQL no longer used)
+
+# ---- Node / Frontend ----
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/.env.local
+
+# ---- Logs ----
+*.log
+logs/
+
+# ---- Testing ----
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ---- OS ----
+Thumbs.db
+
+# ---- Output / pipeline artifacts ----
+output/
+
+# ---- Tool configs ----
+.artiforge/
+.ruff_cache/

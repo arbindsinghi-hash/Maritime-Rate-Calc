@@ -1,0 +1,62 @@
+# MRCA AI Tariff — Modular, containerized stack
+# Pipeline runner: docker compose -f docker-compose.yml run --rm backend python pipeline/runner.py
+# NOTE: Audit logs use JSONL file-based store (storage/audit/audit_log.jsonl).
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mrca-ai-tariff-backend
+    container_name: mrca_backend
+    environment:
+      STORAGE_DIR: /app/storage
+      PDF_DIR: /app/storage/pdfs
+      YAML_DIR: /app/storage/yaml
+      FAISS_INDEX_DIR: /app/storage/faiss
+      AUDIT_LOG_DIR: /app/storage/audit
+    env_file: .env
+    volumes:
+      - .:/app
+      - storage_data:/app/storage
+    ports:
+      - "8000:8000"
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    profiles:
+      - app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: mrca-ai-tariff-frontend
+    container_name: mrca_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://mrca_backend:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    profiles:
+      - app
+
+  # Pipeline runner (run in containerized backend)
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mrca-ai-tariff-backend
+    env_file: .env
+    volumes:
+      - .:/app
+    working_dir: /app
+    entrypoint: ["python", "pipeline/runner.py"]
+    profiles:
+      - pipeline
+
+volumes:
+  storage_data:

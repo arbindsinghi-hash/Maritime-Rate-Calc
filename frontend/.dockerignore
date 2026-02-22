@@ -1,0 +1,17 @@
+# ==========================
+# MRCA AI Tariff — Frontend Docker build context
+# ==========================
+
+node_modules
+.next
+.git
+dist
+out
+.env*
+.DS_Store
+*.md
+.vscode
+.idea
+coverage
+npm-debug.log*
+.vercel
