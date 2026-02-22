@@ -35,9 +35,10 @@ storage/faiss/*.json
 
 # ---- Data / Uploads ----
 storage/pdfs/*.pdf
+!storage/pdfs/Port Tariff.pdf
 storage/yaml/*.yaml
 storage/yaml/*.yml
-!storage/yaml/tariff_rules_golden.yaml
+!storage/yaml/tariff_rules_latest.yaml
 
 # ---- IDE ----
 .vscode/

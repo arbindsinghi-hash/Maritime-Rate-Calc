@@ -1,0 +1,1407 @@
+# =============================================================================
+# TARIFF RULES — Transnet National Ports Authority
+# =============================================================================
+# Source: Port Tariff Book, Twenty Third Edition (April 2024 – March 2025)
+# Golden file: hand-verified against extracted fused_pages_markdown.md
+#              (27 pages, 48 tables, 1490 elements)
+# Validated by: TariffRuleset Pydantic model (backend/models/tariff_rule.py)
+# =============================================================================
+
+metadata:
+  schema_version: "1.0"
+  tariff_edition: "Twenty Third Edition"
+  effective_from: "2024-04-01"
+  effective_to: "2025-03-31"
+  currency: "ZAR"
+  vat_pct: 15
+  issuer:
+    name: "Transnet National Ports Authority"
+    jurisdiction: "Republic of South Africa"
+    legal_basis: "National Ports Act No. 12 of 2005"
+  source_document:
+    title: "Tariff Book April 2024 — March 2025"
+    url: ""
+    pages_total: 27
+
+# -----------------------------------------------------------------------------
+# Definitions — shared across all sections
+# -----------------------------------------------------------------------------
+definitions:
+  tonnage:
+    convention: "Tonnage Convention 1969"
+    unit: "gross_tonnage"
+    convert_to_cubic_metres: false
+    conversion_factor: 2.83
+    fallback_source: "Lloyds Register of Shipping (highest tonnage)"
+    include_cargo_mass: false
+
+  vessel_types:
+    - id: coaster
+      description: "Bona fide coaster — vessel carrying cargo exclusively between SA ports on regular schedule; requires Authority approval"
+    - id: passenger_vessel
+      description: "Vessel carrying more than 12 passengers"
+      passenger_threshold: 12
+    - id: small_vessel
+      description: "Commercial small vessel; includes tug, fishing vessel, launch, barge, lighter; excludes pleasure vessel"
+    - id: pleasure_vessel
+      description: "Solely for sports and recreation, not more than 12 passengers"
+    - id: fishing_vessel
+      description: "Used for catching fish/living resources for gain; licensed by Dept of Environmental Affairs & Tourism"
+    - id: tanker
+      description: "Designed to carry liquid cargo in bulk (crude, petroleum, LPG)"
+    - id: hulk
+      description: "Hulk — decommissioned vessel for breaking up"
+    - id: bulk_carrier
+      description: "Vessel designed to carry dry bulk cargo"
+
+  unit_of_tonnage_cargo:
+    unit: "metric_ton"
+    min_quantity: 1
+    exceptions:
+      - commodity_type: "vehicle"
+        unit: "metre"
+        description: "Motor vehicles on own wheels charged per metre of length"
+      - commodity_type: "bulk_liquid"
+        unit: "kilolitre"
+        description: "Bulk liquids measured in kilolitres"
+
+  working_hours:
+    default:
+      description: "24 hours — Richards Bay, Durban, Ngqura, Port Elizabeth, Cape Town, Saldanha"
+      days: "all"
+      start: "00:01"
+      end: "24:00"
+    mossel_bay:
+      description: "Mondays to Fridays excluding public holidays: 06:00–18:00"
+      days: "Mon-Fri"
+      start: "06:00"
+      end: "18:00"
+    east_london:
+      description: "Weekdays 06:00–22:00; Saturdays 06:00–12:00"
+      days: "Mon-Sat"
+      start: "06:00"
+      end: "22:00"
+      saturdays:
+        start: "06:00"
+        end: "12:00"
+
+# =============================================================================
+# Sections — one per charge category, in evaluation order
+# =============================================================================
+sections:
+
+  # ===========================================================================
+  # 1. LIGHT DUES (Section 1.1, Page 5)
+  # ===========================================================================
+  - id: light_dues
+    name: "Light Dues"
+    description: >
+      Light dues on vessels entering SA waters. Two regimes: (1) registered vessels
+      at their registered port — per metre LOA per financial year; (2) all other
+      vessels — per 100 GT, valid from first to last SA port of call.
+    citation:
+      page: 5
+      section: "1.1"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "all_sa_ports"
+    calculation:
+      type: multiple_regimes
+      regimes:
+        - id: registered_port
+          applies_to:
+            - "self_propelled"
+            - "deat_licensed_at_registered_port"
+          basis: "loa_metres"
+          period: "financial_year"
+          rate_per_metre: 24.64
+          validity: "per financial year or part thereof"
+        - id: all_other_vessels
+          applies_to:
+            - "all_other"
+          basis: "gross_tonnage"
+          divisor: 100
+          rate_per_100_tons: 117.08
+          validity: "first SA port of call to last SA port of call"
+          conditions:
+            - "does_not_proceed_beyond_sa_coastline"
+            - "time_in_sa_waters_not_exceeding_60_days"
+          time_limits_days: 60
+          territorial_limits_nm: 12
+          coastal_after_days: 60
+          coastal_basis: "calendar_month"
+    exemptions:
+      - id: full_exemption
+        conditions:
+          - "saps_sandf"
+        description: "SAPS and SANDF vessels"
+      - id: samsa_exemption
+        conditions:
+          - "samsa"
+        description: "SAMSA vessels"
+      - id: medical_research_exemption
+        conditions:
+          - "sa_medical_research"
+        description: "SA Medical & Research vessels"
+      - id: non_selfpropelled_small_pleasure
+        conditions:
+          - "non_self_propelled_small_pleasure_not_gain"
+        description: "Non-self-propelled small and pleasure vessels not used for gain"
+      - id: anchorage_outside_port
+        conditions:
+          - "anchorage_outside_port"
+        description: "Vessels at anchorage outside port (except single buoy mooring)"
+    note: "Coaster Light Dues raised on monthly basis per special agreement. From foreign port: full Light Dues at first SA port."
+
+  # ===========================================================================
+  # 2. VTS CHARGES (Section 2.1, Page 6)
+  # ===========================================================================
+  - id: vts_charges
+    name: "VTS Dues"
+    description: >
+      Vessel Traffic Services charges per GT per port call. Higher rate at
+      Durban and Saldanha Bay. Minimum fee applies.
+    citation:
+      page: 6
+      section: "2.1"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      conditions:
+        - "vessel_calling_port_under_authority_control"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_unit
+      basis: "gross_tonnage"
+      rate_per_gt: 0.54
+      per: "port_call"
+      port_overrides:
+        durban:
+          rate_per_gt: 0.65
+        saldanha:
+          rate_per_gt: 0.65
+    minimum_fee: 235.52
+    exemptions:
+      - conditions: ["saps_sandf"]
+      - conditions: ["samsa"]
+      - conditions: ["sa_medical_research"]
+      - conditions: ["return_from_anchorage_harbour_master_order"]
+      - conditions: ["section_4_2_small_pleasure"]
+
+  # ===========================================================================
+  # 3. MARINE SERVICES INCENTIVE (Section 3.2, Page 6)
+  # ===========================================================================
+  - id: marine_services_incentive
+    name: "Marine Services Incentive"
+    description: >
+      Threshold-based discount on pilotage, craft assistance and berthing
+      services. Applied per shipping line on a national basis to cargo-working
+      vessels only.
+    citation:
+      page: 6
+      section: "3.2"
+    applicability:
+      payable_by:
+        - "shipping_line"
+      scope: "per_shipping_line_national_all_ports"
+      cargo_working_vessels_only: true
+    calculation:
+      type: threshold_discount
+      applies_to_charges:
+        - "pilotage"
+        - "tugs_assistance"
+        - "berthing_services"
+      tiers:
+        - cargo_type: "CONTAINER"
+          threshold_calls: 500
+          discount_pct_per_increment: 1
+          increment_calls: 50
+          max_calls_for_discount: 1500
+        - cargo_type: "AUTO_CARRIERS"
+          threshold_calls: 100
+          discount_pct_per_increment: 1
+          increment_calls: 10
+          max_calls_for_discount: 300
+        - cargo_type: "BREAK_BULK"
+          threshold_calls: 100
+          discount_pct_per_increment: 1
+          increment_calls: 10
+          max_calls_for_discount: 300
+        - cargo_type: "DRY_BULK"
+          threshold_calls: 100
+          discount_pct_per_increment: 1
+          increment_calls: 10
+          max_calls_for_discount: 300
+        - cargo_type: "LIQUID_BULK"
+          threshold_calls: 100
+          discount_pct_per_increment: 1
+          increment_calls: 10
+          max_calls_for_discount: 300
+
+  # ===========================================================================
+  # 4. PILOTAGE (Section 3.3, Page 7)
+  # ===========================================================================
+  - id: pilotage
+    name: "Pilotage Dues"
+    description: >
+      Compulsory pilotage at all ports. Per service (entering/leaving):
+      base fee + per 100 tons GT. Port-specific rates.
+    citation:
+      page: 7
+      section: "3.3"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      conditions:
+        - "pilotage_compulsory_at_all_ports"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_service
+      basis: "gross_tonnage"
+      divisor: 100
+      per: "service"
+      port_rates:
+        richards_bay:
+          base_fee: 30960.46
+          rate_per_100_tons: 10.93
+        durban:
+          base_fee: 18608.61
+          rate_per_100_tons: 9.72
+        port_elizabeth:
+          base_fee: 8970.00
+          rate_per_100_tons: 14.33
+        ngqura:
+          base_fee: 8970.00
+          rate_per_100_tons: 14.33
+        cape_town:
+          base_fee: 6342.39
+          rate_per_100_tons: 10.20
+        saldanha:
+          base_fee: 9673.57
+          rate_per_100_tons: 13.66
+        other:
+          base_fee: 6547.45
+          rate_per_100_tons: 10.49
+    surcharges:
+      - percentage: 50
+        conditions:
+          - "outside_working_hours"
+      - percentage: 50
+        conditions:
+          - "vessel_not_ready_30_min_after_notified_time"
+      - percentage: 50
+        conditions:
+          - "cancellation_within_30_min_pilot_not_boarded"
+      - percentage: 50
+        port_id: "durban"
+        conditions:
+          - "durban_cancellation_within_60_min_pilot_not_boarded"
+    exemptions:
+      - conditions: ["saps_sandf_except_on_request"]
+    special:
+      saldanha_plo_tanker_per_hour: 886.20
+
+  # ===========================================================================
+  # 5. TUGS / CRAFT ASSISTANCE (Section 3.6, Page 8)
+  # ===========================================================================
+  - id: tugs_assistance
+    name: "Towage Dues"
+    description: >
+      Tug/vessel assistance based on tonnage bands with craft allocation.
+      Port-specific rates. Incremental charge per additional 100 tons.
+    citation:
+      page: 8
+      section: "3.6"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "all_sa_ports"
+    calculation:
+      type: tiered_per_service
+      basis: "gross_tonnage"
+      divisor: 100
+      per: "service"
+      craft_allocation:
+        - max_tonnage: 2000
+          craft_units: 0.5
+        - max_tonnage: 10000
+          craft_units: 1
+        - max_tonnage: 50000
+          craft_units: 2
+        - max_tonnage: 100000
+          craft_units: 3
+        - max_tonnage: null
+          craft_units: 4
+      bands:
+        # Band 1: Up to 2,000 GT — base fee only
+        - max_tonnage: 2000
+          base_fee_by_port:
+            richards_bay: 7001.67
+            durban: 8140.00
+            east_london: 5622.16
+            port_elizabeth: 7206.98
+            ngqura: 7206.98
+            mossel_bay: 6316.53
+            cape_town: 5411.47
+            saldanha: 9038.42
+        # Band 2: 2,001–10,000 GT — base + per 100t above 2,000
+        - max_tonnage: 10000
+          base_fee_by_port:
+            richards_bay: 13020.67
+            durban: 12633.99
+            east_london: 8152.14
+            port_elizabeth: 11168.45
+            ngqura: 11168.45
+            mossel_bay: 8152.14
+            cape_town: 7898.57
+            saldanha: 15378.78
+          rate_per_100_tons_above:
+            richards_bay: 275.32
+            durban: 268.99
+            east_london: 200.97
+            port_elizabeth: 237.53
+            ngqura: 237.53
+            mossel_bay: 173.37
+            cape_town: 194.63
+            saldanha: 327.43
+        # Band 3: 10,001–50,000 GT — base + per 100t above 10,000
+        - max_tonnage: 50000
+          base_fee_by_port:
+            richards_bay: 39999.88
+            durban: 38494.51
+            east_london: 27956.91
+            port_elizabeth: 32257.98
+            ngqura: 32257.98
+            mossel_bay: 25806.37
+            cape_town: 27741.85
+            saldanha: 47311.70
+          rate_per_100_tons_above:
+            richards_bay: 101.08
+            durban: 84.95
+            east_london: 66.67
+            port_elizabeth: 73.10
+            ngqura: 73.10
+            mossel_bay: 60.21
+            cape_town: 64.52
+            saldanha: 103.23
+        # Band 4: 50,001–100,000 GT — base + per 100t above 50,000
+        - max_tonnage: 100000
+          base_fee_by_port:
+            richards_bay: 79999.76
+            durban: 73118.07
+            east_london: 55913.82
+            port_elizabeth: 64515.95
+            ngqura: 64515.95
+            mossel_bay: null
+            cape_town: 53978.33
+            saldanha: 90322.33
+          rate_per_100_tons_above:
+            richards_bay: 30.11
+            durban: 32.24
+            east_london: 25.80
+            port_elizabeth: 21.50
+            ngqura: 21.50
+            mossel_bay: null
+            cape_town: 47.32
+            saldanha: 27.97
+        # Band 5: 100,001–null GT — base + per 100t above 100,000
+        - max_tonnage: null
+          base_fee_by_port:
+            richards_bay: 103999.70
+            durban: 93548.13
+            east_london: null
+            port_elizabeth: 82542.46
+            ngqura: 82542.46
+            mossel_bay: null
+            cape_town: 79569.67
+            saldanha: 111827.63
+          rate_per_100_tons_above:
+            richards_bay: 21.50
+            durban: 23.65
+            east_london: null
+            port_elizabeth: 21.50
+            ngqura: 21.50
+            mossel_bay: null
+            cape_town: 38.71
+            saldanha: 47.32
+    surcharges:
+      - percentage: 25
+        conditions:
+          - "outside_working_hours"
+      - percentage: 50
+        conditions:
+          - "additional_tug_requested_or_safety"
+        per_extra_tug: true
+      - percentage: 50
+        conditions:
+          - "vessel_without_own_power"
+      - percentage: 100
+        conditions:
+          - "vessel_without_power_plus_additional_tug"
+        per_extra_tug: true
+    special:
+      default_delay_fee_per_tug_per_half_hour: 8050.76
+      saldanha_delay_fee_per_tug_per_half_hour: 10152.19
+      misc_tug_services:
+        first_12h_per_tug_per_hour_all_except_saldanha: 16098.29
+        max_12h_all_except_saldanha: 128786.47
+        following_12h_to_24h_per_tug_per_hour: 10735.34
+        max_24h_all_except_saldanha: 225442.89
+        thereafter_per_tug_per_hour: 8050.76
+        saldanha_first_12h_per_tug_per_hour: 20304.33
+        saldanha_max_12h: 162444.27
+        saldanha_following_12h_per_hour: 13537.32
+        saldanha_max_24h: 284308.38
+        saldanha_thereafter_per_hour: 10152.19
+        durban_floating_crane_mobilisation: 44374.14
+        durban_floating_crane_per_hour: 19017.50
+
+  # ===========================================================================
+  # 6. BERTHING SERVICES (Section 3.8, Page 9)
+  # ===========================================================================
+  - id: berthing_services
+    name: "Berthing Services"
+    description: >
+      Per service: base fee + per 100 tons GT. Port-specific. Covers entering/
+      leaving port, shifting berth, warping, drydock/slipway moves, engine trials,
+      remooring, crewing. Berthing and unberthing are two separate services.
+    citation:
+      page: 9
+      section: "3.8"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_service
+      basis: "gross_tonnage"
+      divisor: 100
+      per: "service"
+      port_rates:
+        richards_bay:
+          base_fee: 3175.89
+          rate_per_100_tons: 13.46
+        port_elizabeth:
+          base_fee: 3838.62
+          rate_per_100_tons: 18.72
+        ngqura:
+          base_fee: 3838.62
+          rate_per_100_tons: 18.72
+        cape_town:
+          base_fee: 3052.33
+          rate_per_100_tons: 14.92
+        saldanha:
+          base_fee: 4006.34
+          rate_per_100_tons: 16.97
+        other:
+          base_fee: 2801.91
+          rate_per_100_tons: 13.68
+    surcharges:
+      - percentage: 50
+        conditions:
+          - "outside_working_hours"
+      - percentage: 50
+        conditions:
+          - "standby_cancelled_after_commenced"
+      - percentage: 50
+        conditions:
+          - "vessel_arrives_30_min_after_notified_time"
+    special:
+      tanker_berthing_attendance_mossel_bay_saldanha_per_hour: 1267.83
+
+  # ===========================================================================
+  # 7. RUNNING OF VESSEL LINES (Section 3.9, Page 10)
+  # ===========================================================================
+  - id: running_lines
+    name: "Running of Vessel Lines"
+    description: >
+      Per service for running vessel lines (steel wire / mooring ropes) from ship
+      to bollard using launch/mooring boat. Port-specific rates.
+    citation:
+      page: 10
+      section: "3.9"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_service
+      basis: "service"
+      per: "service"
+      port_rates:
+        port_elizabeth:
+          base_fee: 2266.73
+        ngqura:
+          base_fee: 2266.73
+        cape_town:
+          base_fee: 2370.84
+        saldanha:
+          base_fee: 2085.59
+        other:
+          base_fee: 1654.56
+    surcharges:
+      - percentage: 100
+        conditions:
+          - "outside_working_hours"
+    special:
+      outside_hours_minimum:
+        port_elizabeth: 4533.42
+        ngqura: 4533.42
+        cape_town: 3309.05
+        saldanha: 4171.18
+        other: 3309.05
+      saldanha_remooring_without_tug_pilots: 4739.14
+      cancellation_standby_per_hour_min_2h: 1654.56
+
+  # ===========================================================================
+  # 8. PORT DUES (Section 4.1.1, Page 11)
+  # ===========================================================================
+  - id: port_dues
+    name: "Port Dues"
+    description: >
+      Port fees: base per 100 GT plus incremental per 100 GT per 24h (pro rata).
+      Multiple reductions with stacking rules. Surcharge after 30 days
+      non-cargo-working.
+    citation:
+      page: 11
+      section: "4.1.1"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      conditions:
+        - "vessel_entering_port"
+        - "vessel_taking_bunkers_at_designated_anchorage"
+        - "vessel_at_offshore_moorings"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_unit_per_time
+      basis: "gross_tonnage"
+      divisor: 100
+      base_rate_per_100_tons: 192.73
+      incremental_rate_per_100_tons_per_24h: 57.79
+      period: "24_hours"
+      period_rounding: "pro_rata"
+    minimum_fee_small_pleasure_other_than_registered: 470.98
+    reductions:
+      - id: r35_non_cargo_working
+        percentage: 35
+        description: "Vessels not engaged in cargo working for the first 30 days only"
+        conditions:
+          - "not_cargo_working_first_30_days"
+        stackable: false
+        not_stackable_with: ["r60_bunkers"]
+      - id: r35_coaster
+        percentage: 35
+        description: "Bona fide coasters"
+        conditions:
+          - "bonafide_coaster"
+        stackable: false
+        not_stackable_with: ["r60_bunkers"]
+      - id: r35_passenger
+        percentage: 35
+        description: "Passenger vessels"
+        conditions:
+          - "passenger_vessel"
+        stackable: false
+        not_stackable_with: ["r60_bunkers"]
+      - id: r35_small_vessel
+        percentage: 35
+        description: "Small vessels (Section 4.2) visiting port other than registered port"
+        conditions:
+          - "small_vessel_4_2_visiting"
+        stackable: false
+        not_stackable_with: ["r60_bunkers"]
+      - id: r60_bunkers
+        percentage: 60
+        description: "Sole purpose bunkers/stores/water, stay ≤48h"
+        conditions:
+          - "sole_purpose_bunkers_stores_water"
+          - "entire_stay_max_48_hours"
+        stackable: false
+        not_stackable_with:
+          - "r35_non_cargo_working"
+          - "r35_coaster"
+          - "r35_passenger"
+          - "r35_small_vessel"
+      - id: r10_green
+        percentage: 10
+        description: "Certified double hull tankers, segregated ballast tanks, or Green Award (max 10%)"
+        conditions:
+          - "double_hull_or_segregated_ballast_or_green_award"
+        stackable: true
+        max_total_pct: 10
+      - id: r15_short_stay
+        percentage: 15
+        description: "Vessel remaining in port less than 12 hours"
+        conditions:
+          - "stay_less_than_12_hours"
+        stackable: true
+    surcharges:
+      - percentage: 20
+        applies_to: "incremental_fee_only"
+        conditions:
+          - "in_port_longer_than_30_days_not_cargo_working"
+    exemptions:
+      - conditions: ["saps_sandf"]
+      - conditions: ["samsa"]
+      - conditions: ["sa_medical_research"]
+      - conditions: ["time_in_drydock_floating_dock_syncrolift_slipway"]
+      - conditions: ["small_pleasure_4_2_registered_port"]
+      - conditions: ["fishing_licensed_deat_saldanha"]
+      - conditions: ["second_call_return_from_anchorage_port_order"]
+
+  # ===========================================================================
+  # 9. BERTH DUES (Section 4.1.2, Page 11)
+  # ===========================================================================
+  - id: berth_dues
+    name: "Berth Dues"
+    description: >
+      Berth occupancy charges for vessels occupying a repair quay or any other
+      berth and not handling cargo. Tiered per 100 GT per 24h.
+    citation:
+      page: 11
+      section: "4.1.2"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      conditions:
+        - "vessel_occupying_berth_not_handling_cargo"
+      scope: "all_sa_ports"
+    calculation:
+      type: tiered_per_100_tons_per_24h
+      basis: "gross_tonnage"
+      divisor: 100
+      period: "24_hours"
+      bands:
+        - max_tonnage: 17700
+          rate_per_100_tons: 50.56
+        - max_tonnage: 35300
+          rate_per_100_tons: 33.45
+        - max_tonnage: 53000
+          rate_per_100_tons: 16.82
+        - max_tonnage: null
+          rate_per_100_tons: 0
+    free_period_cargo_working_hours_before: 6
+    free_period_cargo_working_hours_after: 6
+    exemptions:
+      - conditions: ["saps_sandf"]
+      - conditions: ["alongside_berth_sole_purpose_vessel_stores_fuel_48h"]
+      - conditions: ["small_pleasure_4_2_registered_port"]
+      - conditions: ["sole_purpose_landing_survivors"]
+      - conditions: ["sole_purpose_medical_assistance"]
+      - conditions: ["sa_medical_research"]
+      - conditions: ["passenger_vessel_normal_business"]
+      - conditions: ["vessel_being_fumigated_prior_to_cargo"]
+      - conditions: ["humanitarian_service_to_south_africans"]
+    note: "Container berths: free period is 2 cargo working hours (not 6). Drydock equivalence applies."
+    special:
+      container_berth_free_period_hours: 2
+      saldanha_ore_jetty_per_summer_dwt_per_hour: 1.15
+      saldanha_sof_non_submission_fee: 1926.96
+
+  # ===========================================================================
+  # 10. SMALL VESSELS, HULKS, PLEASURE VESSELS (Section 4.2, Page 12)
+  # ===========================================================================
+  - id: small_vessels_port_dues
+    name: "Port Dues — Small Vessels, Hulks & Pleasure Vessels"
+    description: "Annual/daily fees for small vessels, hulks, and pleasure vessels."
+    citation:
+      page: 12
+      section: "4.2"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+      conditions:
+        - "small_vessel_or_hulk_or_pleasure_vessel"
+      scope: "all_sa_ports"
+    calculation:
+      type: flat
+      rates:
+        non_mechanically_propelled_per_metre_per_year: 47.00
+        self_propelled_per_metre_per_year: 78.41
+        fishing_saldanha_harbour_per_metre_per_year: 137.66
+        fishing_non_steel_first_10m_per_year: 189.37
+        fishing_non_steel_thereafter_per_year: 378.68
+        fishing_steel_first_10m_per_year: 382.31
+        fishing_steel_thereafter_per_year: 764.52
+        hulk_per_metre_per_day: 9.19
+        pleasure_rowing_boat_per_year: 111.93
+        pleasure_up_to_6m_per_year: 223.88
+        pleasure_over_6m_per_year: 447.71
+
+  # ===========================================================================
+  # 11. VISITING VESSELS / YACHTS (Section 4.2, Page 13)
+  # ===========================================================================
+  - id: visiting_vessels_port_dues
+    name: "Visiting Vessels (Foreign/Local Yachts) Port Dues"
+    description: >
+      Visiting vessels not engaged in trade: 30-day free period, then
+      escalating per-metre-per-day rates.
+    citation:
+      page: 13
+      section: "4.2"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+      conditions:
+        - "visiting_vessel_not_engaged_in_trade"
+        - "not_at_commercial_berth"
+      scope: "all_sa_ports"
+    calculation:
+      type: tiered_time
+      basis: "length_overall_metres"
+      per: "per_metre_per_day"
+      bands:
+        - max_value: 30
+          rate_per_unit_above: 0
+        - max_value: 120
+          rate_per_unit_above: 2.82
+        - max_value: 210
+          rate_per_unit_above: 5.56
+        - max_value: 365
+          rate_per_unit_above: 11.14
+        - max_value: null
+          rate_per_unit_above: 33.45
+    note: "30-day free stay. Bands refer to cumulative days in port."
+
+  # ===========================================================================
+  # 12. LICENCE FEES (Section 5, Page 16)
+  # ===========================================================================
+  - id: licence_fees
+    name: "Licence Fees"
+    description: "Annual licence fee per licence type."
+    citation:
+      page: 16
+      section: "5"
+    applicability:
+      payable_by:
+        - "licence_holder"
+      scope: "all_sa_ports"
+    calculation:
+      type: flat
+      rate: 22576.31
+      per: "per_licence_per_year"
+
+  # ===========================================================================
+  # 13. DRYDOCK DUES — CAPE TOWN & EAST LONDON (Section 6.6.1, Page 19)
+  # ===========================================================================
+  - id: drydock_dues_ct_el
+    name: "Drydock Dues — Cape Town & East London"
+    description: >
+      Drydock facility usage: tiered by tonnage (in cubic metres) per time period.
+      Includes cranage and salt water during ordinary working hours.
+      Tonnage = GT × 2.83 conversion factor.
+    citation:
+      page: 19
+      section: "6.6.1"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "cape_town,east_london"
+    calculation:
+      type: tiered_time
+      basis: "gross_tonnage_cubic_metres"
+      per: "time_period"
+      bands:
+        - max_tonnage: 3000
+          base_fee: 8585.20
+          rate_per_unit_above: 2.52
+        - max_tonnage: 6000
+          base_fee: 11300.73
+          rate_per_unit_above: 2.88
+        - max_tonnage: 10000
+          base_fee: 19846.56
+          rate_per_unit_above: 3.53
+        - max_tonnage: 30000
+          base_fee: 20779.85
+          rate_per_unit_above: 3.53
+        - max_tonnage: 60000
+          base_fee: 43308.22
+          rate_per_unit_above: 3.53
+        - max_tonnage: 80000
+          base_fee: 51494.21
+          rate_per_unit_above: 3.53
+    note: "Above 80,000 tons — fees on application. First 24h period, then each subsequent 12h. Overstay penalty 40% per 12h (clause 6.3)."
+    surcharges:
+      - percentage: 40
+        conditions:
+          - "exceeds_allocated_booking_period"
+        applies_to: "per_subsequent_12h_overstay"
+    special:
+      subsequent_12h_rates:
+        up_to_3000_base: 4292.57
+        up_to_3000_per_ton: 0.84
+        up_to_6000_base: 5650.38
+        up_to_6000_per_ton: 0.94
+        up_to_10000_base: 9923.28
+        up_to_10000_per_ton: 1.39
+        up_to_30000_base: 10389.93
+        up_to_30000_per_ton: 1.39
+        up_to_60000_base: 21654.14
+        up_to_60000_per_ton: 1.20
+        up_to_80000_base: 25747.12
+        up_to_80000_per_ton: 0.94
+      docking_undocking_drydock: 13083.00
+      docking_undocking_syncrolift: 5771.23
+      booking_deposit_drydock: 56222.56
+      booking_deposit_slipway: 1686.68
+      preparation:
+        up_to_1000: 2158.96
+        up_to_10000: 4317.91
+        up_to_20000: 8635.78
+        up_to_50000: 12953.72
+        above_50000: 17271.56
+      minimum_fees:
+        sturrock_prince_edward_first_24h: 48570.64
+        sturrock_prince_edward_subsequent_12h: 20389.12
+        princess_elizabeth_robinson_first_24h: 18634.97
+        princess_elizabeth_robinson_subsequent_12h: 8329.37
+        floating_docks_first_24h: 20408.81
+        floating_docks_subsequent_12h: 10204.40
+        syncrolift_first_24h: 6625.83
+        syncrolift_subsequent_12h: 2206.74
+
+  # ===========================================================================
+  # 14. DRYDOCK DUES — DURBAN (Section 6.6.2, Page 19)
+  # ===========================================================================
+  - id: drydock_dues_durban
+    name: "Drydock Dues — Durban"
+    description: >
+      Drydock facility usage at Durban: tiered by tonnage (cubic metres) per
+      time period.
+    citation:
+      page: 19
+      section: "6.6.2"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "durban"
+    calculation:
+      type: tiered_time
+      basis: "gross_tonnage_cubic_metres"
+      per: "time_period"
+      bands:
+        - max_tonnage: 30000
+          base_fee: 20796.71
+          rate_per_unit_above: 3.53
+        - max_tonnage: 60000
+          base_fee: 43308.22
+          rate_per_unit_above: 3.53
+        - max_tonnage: 80000
+          base_fee: 51494.21
+          rate_per_unit_above: 3.53
+    note: "Above 80,000 tons — fees on application."
+    surcharges:
+      - percentage: 40
+        conditions:
+          - "exceeds_allocated_booking_period"
+        applies_to: "per_subsequent_12h_overstay"
+    special:
+      subsequent_12h_rates:
+        up_to_30000_base: 10398.34
+        up_to_30000_per_ton: 1.37
+        up_to_60000_base: 21654.14
+        up_to_60000_per_ton: 1.20
+        up_to_80000_base: 25747.12
+        up_to_80000_per_ton: 0.93
+      docking_undocking_drydock: 13083.00
+      booking_deposit_drydock: 56222.56
+      preparation_drydock: 17282.81
+
+  # ===========================================================================
+  # 15. SYNCROLIFT — CAPE TOWN (Section 6.6.3, Page 19)
+  # ===========================================================================
+  - id: syncrolift_dues_ct
+    name: "Syncrolift Dues — Cape Town"
+    description: "Syncrolift facility at Cape Town."
+    citation:
+      page: 19
+      section: "6.6.3"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "cape_town"
+    calculation:
+      type: tiered_time
+      basis: "gross_tonnage_cubic_metres"
+      per: "time_period"
+      bands:
+        - max_tonnage: 2000
+          base_fee: 1602.33
+          rate_per_unit_above: 3.53
+        - max_tonnage: null
+          base_fee: 2108.35
+          rate_per_unit_above: 3.53
+    special:
+      subsequent_12h_rates:
+        up_to_2000_base: 801.19
+        up_to_2000_per_ton: 1.46
+        above_2000_base: 1054.16
+        above_2000_per_ton: 1.46
+
+  # ===========================================================================
+  # 16. SLIPWAY (Section 6.7, Page 20)
+  # ===========================================================================
+  - id: slipway_dues
+    name: "Slipway Dues"
+    description: "Slipway facility usage at Mossel Bay and Port Elizabeth."
+    citation:
+      page: 20
+      section: "6.7"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "mossel_bay,port_elizabeth"
+    calculation:
+      type: tiered_time
+      basis: "gross_tonnage_cubic_metres"
+      per: "time_period"
+      bands:
+        - max_tonnage: 2000
+          base_fee: 1602.33
+          rate_per_unit_above: 3.53
+        - max_tonnage: null
+          base_fee: 2108.35
+          rate_per_unit_above: 3.53
+    minimum_fee: 4329.12
+    special:
+      subsequent_12h_rates:
+        up_to_2000_base: 801.19
+        up_to_2000_per_ton: 1.46
+        above_2000_base: 878.49
+        above_2000_per_ton: 1.46
+      subsequent_12h_minimum: 1588.29
+      preparation_up_to_1000: 2156.13
+      docking_undocking_per_service: 1130.09
+
+  # ===========================================================================
+  # 17. WHARF CRANES (Section 6.8, Page 20)
+  # ===========================================================================
+  - id: wharf_cranes
+    name: "Wharf Cranes"
+    description: "Wharf cranes at drydock — outside ordinary working hours only."
+    citation:
+      page: 20
+      section: "6.8"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      conditions:
+        - "outside_working_hours"
+      scope: "cape_town,east_london,durban"
+    calculation:
+      type: flat
+      rate: 1265.00
+      per: "per_hour"
+    note: "One crane per vessel included in dues. Additional cranes charged separately (Durban)."
+
+  # ===========================================================================
+  # 18. CARGO DUES — BREAKBULK (Section 7.1, Page 21)
+  # ===========================================================================
+  - id: cargo_dues_breakbulk
+    name: "Cargo Dues — Breakbulk"
+    description: "Per-commodity per-ton rates for breakbulk cargo imports and exports."
+    citation:
+      page: 21
+      section: "7.1"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_commodity_per_ton
+      unit: "metric_ton"
+      base_rates:
+        imports: 30.56
+        exports: 30.56
+      commodities:
+        - {name: "Alumina", import: 30.56, export: 27.33}
+        - {name: "Articles of cement / sand / stone", import: 27.33, export: 27.33}
+        - {name: "Bait", import: 30.56, export: 27.33}
+        - {name: "Bricks", import: 30.56, export: 27.33}
+        - {name: "Cement & clinker", import: 27.33, export: 5.46}
+        - {name: "Chrome ore", import: 18.85, export: 15.47}
+        - {name: "Citrus fruit", import: 25.14, export: 25.14}
+        - {name: "Clay", import: 27.33, export: 27.33}
+        - {name: "Coal", import: 10.55, export: 4.53}
+        - {name: "Fertilizers", import: 26.76, export: 19.13}
+        - {name: "Fish meal & products thereof", import: 30.56, export: 30.56}
+        - {name: "Fluorspar", import: 27.33, export: 27.33}
+        - {name: "Glass & glassware", import: 30.56, export: 17.17}
+        - {name: "Granite & products thereof", import: 30.56, export: 10.56}
+        - {name: "Gypsum & products thereof", import: 27.33, export: 27.33}
+        - {name: "Iron ore", import: 27.33, export: 27.33}
+        - {name: "Lead & products thereof", import: 27.33, export: 21.84}
+        - {name: "Lime & products thereof", import: 27.33, export: 27.33}
+        - {name: "Logs", import: 30.56, export: 7.31}
+        - {name: "Maize & products thereof", import: 30.08, export: 30.08}
+        - {name: "Manganese ore", import: 19.13, export: 19.13}
+        - {name: "Ores & minerals: Olivine", import: 27.33, export: 30.56}
+        - {name: "Ores & minerals: Other", import: 27.33, export: 27.33}
+        - {name: "Pig iron", import: 27.33, export: 14.55}
+        - {name: "Pitch pencil", import: 27.33, export: 25.53}
+        - {name: "Potash & products thereof", import: 26.76, export: 19.13}
+        - {name: "Salt", import: 27.33, export: 27.33}
+        - {name: "Scrap steel", import: 9.08, export: 9.08}
+        - {name: "Stainless steel (excl pipes & tubes)", import: 30.56, export: 27.82}
+        - {name: "Steel pellets", import: 10.02, export: 10.02}
+        - {name: "Steel rebars / sheets / plates / angles", import: 27.82, export: 27.82}
+        - {name: "Steel: Cold rolled coils, galvanised, aluzinc", import: 27.82, export: 27.82}
+        - {name: "Steel: Hot rolled coils, slabs, billets", import: 27.82, export: 27.82}
+        - {name: "Timber & products thereof (excl furniture)", import: 30.56, export: 20.01}
+        - {name: "Zinc & products thereof", import: 27.33, export: 27.33}
+        - {name: "Zircon", import: 30.56, export: 27.33}
+    special:
+      breakbulk_empty_returns_import: 4.55
+      breakbulk_empty_returns_export: 4.55
+      motor_vehicles_import_per_metre: 163.87
+      motor_vehicles_export_per_metre: 64.65
+
+  # ===========================================================================
+  # 19. CARGO DUES — DRY BULK (Section 7.2, Page 22)
+  # ===========================================================================
+  - id: cargo_dues_dry_bulk
+    name: "Cargo Dues — Dry Bulk"
+    description: "Per-commodity per-metric-ton rates for dry bulk cargo imports and exports."
+    citation:
+      page: 22
+      section: "7.2"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_commodity_per_ton
+      unit: "metric_ton"
+      base_rates:
+        imports: 18.49
+        exports: 18.49
+      commodities:
+        - {name: "Agricultural products / seaweed", import: 18.49, export: 18.49}
+        - {name: "Alumina", import: 18.49, export: 18.49}
+        - {name: "Andalusite", import: 18.49, export: 13.51}
+        - {name: "Barley & products thereof", import: 18.49, export: 18.49}
+        - {name: "Cement & clinker", import: 18.49, export: 5.78}
+        - {name: "Chrome ore", import: 18.49, export: 6.95}
+        - {name: "Coal", import: 11.70, export: 5.96}
+        - {name: "Copper concentrates", import: 18.49, export: 18.49}
+        - {name: "Cotton seed & products thereof", import: 18.49, export: 18.49}
+        - {name: "Ferro alloys", import: 18.49, export: 18.49}
+        - {name: "Fertilizer & products thereof", import: 18.49, export: 18.49}
+        - {name: "Fluorspar & products thereof", import: 18.49, export: 18.49}
+        - {name: "Grain & products thereof", import: 18.49, export: 18.49}
+        - {name: "Gypsum & products thereof", import: 18.49, export: 18.49}
+        - {name: "Iron Ore", import: 18.49, export: 10.65}
+        - {name: "Iron Oxide (Hematite)", import: 18.49, export: 9.82}
+        - {name: "Lead & products thereof", import: 18.49, export: 18.49}
+        - {name: "Maize & products thereof", import: 18.49, export: 15.41}
+        - {name: "Malt & products thereof", import: 18.49, export: 18.49}
+        - {name: "Manganese ore", import: 18.49, export: 10.05}
+        - {name: "Ores & minerals: Magnetite", import: 18.49, export: 5.22}
+        - {name: "Ores & minerals: Silico Manganese", import: 18.49, export: 18.49}
+        - {name: "Petroleum Coke", import: 18.49, export: 18.49}
+        - {name: "Pig iron", import: 18.49, export: 15.41}
+        - {name: "Potash & products thereof", import: 18.49, export: 18.49}
+        - {name: "Rice & products thereof", import: 18.49, export: 18.49}
+        - {name: "Rockphosphate", import: 11.00, export: 11.00}
+        - {name: "Rutile", import: 18.49, export: 18.49}
+        - {name: "Salt", import: 6.76, export: 18.49}
+        - {name: "Soda ash", import: 18.49, export: 18.49}
+        - {name: "Steel: Steel pellets", import: 10.61, export: 7.74}
+        - {name: "Sugar", import: 18.49, export: 18.49}
+        - {name: "Sulphur", import: 7.34, export: 7.34}
+        - {name: "Timber products: Wood shavings, sawdust", import: 18.49, export: 8.09}
+        - {name: "Titanium slag", import: 18.49, export: 18.49}
+        - {name: "Vermiculite", import: 18.49, export: 18.49}
+        - {name: "Wheat & products thereof", import: 18.49, export: 18.49}
+        - {name: "Woodchips", import: 18.49, export: 8.09}
+        - {name: "Zinc & products thereof", import: 18.49, export: 18.49}
+        - {name: "Zircon", import: 18.49, export: 18.49}
+
+  # ===========================================================================
+  # 20. CARGO DUES — LIQUID BULK (Section 7.3, Page 22)
+  # ===========================================================================
+  - id: cargo_dues_liquid_bulk
+    name: "Cargo Dues — Liquid Bulk"
+    description: "Per-commodity per-kilolitre rates for liquid bulk cargo imports and exports."
+    citation:
+      page: 22
+      section: "7.3"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_commodity_per_kilolitre
+      unit: "kilolitre"
+      base_rates:
+        imports: 35.89
+        exports: 35.89
+      commodities:
+        - {name: "Ammonium & products thereof", import: 27.98, export: 27.98}
+        - {name: "Anhydrous ammonia", import: 27.98, export: 27.98}
+        - {name: "Animal / vegetable oils / fats & products thereof", import: 35.89, export: 35.89}
+        - {name: "Caustic soda", import: 35.89, export: 35.89}
+        - {name: "Crude & petroleum products", import: 31.47, export: 17.49}
+        - {name: "Molasses & products thereof", import: 6.85, export: 3.49}
+        - {name: "Phosphoric acid", import: 35.89, export: 35.89}
+        - {name: "Pitch pencil", import: 14.69, export: 35.89}
+        - {name: "Sunflower seed oil", import: 35.89, export: 35.89}
+
+  # ===========================================================================
+  # 21. CARGO DUES — CONTAINERS (Section 7.4, Page 22)
+  # ===========================================================================
+  - id: cargo_dues_containers
+    name: "Cargo Dues — Containers"
+    description: "Per-container rates for imports and exports by container size."
+    citation:
+      page: 22
+      section: "7.4"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_teu_flat
+      rates:
+        6m_20ft_import: 1817.91
+        6m_20ft_export: 399.79
+        12m_40ft_import: 3635.80
+        12m_40ft_export: 799.57
+        empty_all_sizes_import: 73.17
+        empty_all_sizes_export: 73.17
+    note: "ISO containers filled with MT returns for refilling regarded as empty. All containers up to 6m/20' charged at 6m/20' rate."
+
+  # ===========================================================================
+  # 22. CARGO DUES — COASTWISE (Section 7.5, Page 22)
+  # ===========================================================================
+  - id: cargo_dues_coastwise
+    name: "Cargo Dues — Coastwise Cargo"
+    description: "Per-leg rates for coastwise cargo (breakbulk/bulk and containerised)."
+    citation:
+      page: 22
+      section: "7.5"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+      conditions:
+        - "coastwise_movement"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_leg
+      rates:
+        breakbulk_bulk_per_ton_per_leg: 16.79
+        breakbulk_empty_returns_per_ton: 4.55
+        container_6m_20ft_per_leg: 74.64
+        container_12m_40ft_per_leg: 149.26
+        container_empty_per_leg: 74.64
+
+  # ===========================================================================
+  # 23. CARGO DUES — EXEMPTIONS (Section 7.6, Page 23)
+  # ===========================================================================
+  - id: cargo_dues_exemptions
+    name: "Cargo Dues — Exemptions"
+    description: "Common exemptions applying across all cargo dues sections."
+    citation:
+      page: 23
+      section: "7.6"
+    applicability:
+      scope: "all_sa_ports"
+    calculation:
+      type: flat
+      rate: 0
+    exemptions:
+      - conditions: ["bunkers_water_for_vessel_own_consumption_at_commercial_berth"]
+      - conditions: ["cargo_landed_in_error_reshipped_same_vessel"]
+      - conditions: ["fish_local_consumption_leased_berth_licensed_fishing_vessel"]
+      - conditions: ["clip_on_units_iso_reefer_containers_returned"]
+      - conditions: ["cargo_restowed_utilizing_wharf"]
+      - conditions: ["vessel_spares_stores_own_consumption"]
+
+  # ===========================================================================
+  # 24. CARGO DUES — TRANSHIPMENT (Section 7.7, Page 23)
+  # ===========================================================================
+  - id: cargo_dues_transhipment
+    name: "Cargo Dues — Transhipped Cargo"
+    description: "Per-leg rates for transhipped cargo (containerised, bulk, liquid)."
+    citation:
+      page: 23
+      section: "7.7"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+      conditions:
+        - "transhipment_movement"
+      scope: "all_sa_ports"
+    calculation:
+      type: per_leg
+      rates:
+        container_6m_20ft_per_leg: 74.64
+        container_12m_40ft_per_leg: 149.26
+        container_empty_per_leg: 73.16
+        other_cargo_per_ton_per_leg: 4.31
+        bulk_liquid_first_100k_per_ton_per_leg: 4.31
+        bulk_liquid_thereafter_per_ton_per_leg: 2.15
+    note: "Bulk liquids not transshipped within 90 days regarded as imported/exported. Perishable/bonded cargo: 30 day limit."
+
+  # ===========================================================================
+  # 25. LATE ORDER AND RELATED FEES (Section 7.8, Page 24)
+  # ===========================================================================
+  - id: cargo_dues_late_order_fees
+    name: "Late Order and Related Fees"
+    description: "Fees for amendments, late submissions, and non-submissions of cargo documentation."
+    citation:
+      page: 24
+      section: "7.8"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+        - "clearing_agent"
+      scope: "all_sa_ports"
+    calculation:
+      type: flat
+      rates:
+        order_amendment_fee: 336.53
+        late_manifest_outturn_fee: 1682.72
+        order_framing_fee: 336.53
+        cargo_conveyed_by_service_vessel_per_trip: 398.96
+        photocopies_per_page: 10.54
+
+  # ===========================================================================
+  # 26. LATE ORDER PENALTIES (Section 8.3, Page 27)
+  # ===========================================================================
+  - id: late_order_penalties
+    name: "Late Order Penalties"
+    description: >
+      Incremental penalty based on days late for non-submission of cargo dues orders.
+      Rates are percentage of cargo dues order value.
+    citation:
+      page: 27
+      section: "8.3"
+    applicability:
+      payable_by:
+        - "importer"
+        - "exporter"
+        - "container_operator"
+        - "vessel_agent"
+      conditions:
+        - "late_or_non_submission_cargo_dues_order"
+      scope: "all_sa_ports"
+    calculation:
+      type: tiered
+      basis: "days_late"
+      bands:
+        - max_value: 30
+          rate_per_unit_above: 0
+        - max_value: 60
+          rate_per_unit_above: 10
+        - max_value: 90
+          rate_per_unit_above: 30
+        - max_value: 120
+          rate_per_unit_above: 50
+        - max_value: null
+          rate_per_unit_above: 100
+    note: "Interest: prime rate + 1% on value for number of days late. Fraudulent declaration: 100% penalty + legal action."
+    special:
+      interest_formula: "prime_rate_plus_1_pct_times_days_late_div_365"
+      fraudulent_declaration_penalty_pct: 100
+      late_manifest_outturn_fee: 1682.72
+
+  # ===========================================================================
+  # 27. FIRE AND EMERGENCY SERVICES (Section 4.3.1, Page 13)
+  # ===========================================================================
+  - id: fire_emergency_services
+    name: "Fire and Emergency Services"
+    description: "Turn-out fees, equipment usage, and crew charges for fire and hazmat incidents."
+    citation:
+      page: 13
+      section: "4.3.1"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "all_sa_ports"
+    calculation:
+      type: flat
+      rates:
+        fire_tender_heavy_duty_turnout: 3762.19
+        fire_tender_light_duty_turnout: 2664.16
+        hazmat_vehicle_heavy_duty_turnout: 3762.19
+        hazmat_vehicle_light_duty_turnout: 2664.16
+        fire_tender_equipment_crew_per_half_hour: 1881.06
+        hazmat_vehicle_equipment_crew_per_half_hour: 1881.06
+        additional_firefighter_per_half_hour: 314.98
+        firefighter_standby_per_half_hour: 314.98
+        portable_fire_pump_per_half_hour: 500.44
+        additional_breathing_apparatus_per_set: 470.98
+        additional_chemical_protection_suit: 1881.06
+        fire_extinguisher_foam_per_litre: 94.24
+        fire_extinguisher_9lt_water: 156.06
+        fire_extinguisher_9lt_foam: 188.37
+        fire_extinguisher_9kg_dry_powder: 235.52
+        fire_extinguisher_5_7kg_co2: 376.80
+        emergency_support_vehicle_per_km: 8.81
+
+  # ===========================================================================
+  # 28. FIRE PROTECTION (Section 4.3.2, Page 14)
+  # ===========================================================================
+  - id: fire_protection
+    name: "Fire Protection"
+    description: "Fire and cargo protection duties, hotwork inspection."
+    citation:
+      page: 14
+      section: "4.3.2"
+    applicability:
+      payable_by:
+        - "vessel_owner"
+        - "vessel_agent"
+      scope: "all_sa_ports"
+    calculation:
+      type: flat
+      rates:
+        vessel_fire_protection_per_hour: 350.30
+        vessel_fire_protection_durban_per_hour: 594.46
+        cargo_fire_protection_per_hour: 350.30
+        cargo_fire_protection_durban_per_hour: 594.46
+        hotwork_fire_safety_inspection: 376.80
+
+  # ===========================================================================
+  # 29. VEHICLE LENGTH DEFAULTS (Section 8.1.1, Page 25)
+  # ===========================================================================
+  - id: vehicle_length_defaults
+    name: "Vehicle Length Defaults for Tariffing"
+    description: "Default vehicle lengths when documentation cannot be provided."
+    citation:
+      page: 25
+      section: "8.1.1"
+    applicability:
+      scope: "all_sa_ports"
+    calculation:
+      type: flat
+      rates:
+        passenger_vehicle_metres: 5.00
+        light_commercial_tractors_metres: 8.00
+        heavy_commercial_metres: 10.00
+        cranes_excavators_bulldozers_metres: 12.00
+        trailers_metres: 14.00
