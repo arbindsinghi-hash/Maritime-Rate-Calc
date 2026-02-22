@@ -57,7 +57,7 @@ dev-backend: ## Start backend only (uvicorn --reload)
 dev-frontend: ## Start frontend only (Next.js dev server)
 	cd $(FRONTEND) && npm run dev
 
-frontend-build: ## Production build of the React frontend
+frontend-build: ## Production build of the Next.js frontend
 	cd $(FRONTEND) && npm run build
 
 frontend-install: ## Install frontend npm dependencies
@@ -94,10 +94,10 @@ lint: ## Lint backend (ruff) + frontend (eslint)
 # ═══════════════════════════════════════════════════════════════════════
 # Cleanup
 # ═══════════════════════════════════════════════════════════════════════
-clean: ## Remove Python caches, test artifacts, frontend dist
+clean: ## Remove Python caches, test artifacts, frontend build
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .pytest_cache htmlcov .coverage coverage.xml
-	rm -rf $(FRONTEND)/dist
+	rm -rf $(FRONTEND)/.next
 
 nuke: down clean ## Stop containers + remove images, volumes & caches
 	$(COMPOSE) --profile app --profile pipeline down --rmi local -v

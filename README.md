@@ -29,7 +29,7 @@ This repository provides a full-stack application to calculate maritime port tar
 - **Breakdown table** — Charge, basis, rate, formula, result per line; total with VAT.
 - **PDF viewer** — View the tariff PDF and jump to the page for a selected charge (citation).
 - **Audit trail** — Expandable panel with full audit JSON for the last (or selected) calculation; supports both form and chat flows.
-- **Ingestion pipeline** — Optional LangGraph DAG to turn PDFs into YAML rules (parser → Gemini → fusion → clause mapping → validation → persist).
+- **Ingestion pipeline** — LangGraph DAG to turn PDFs into YAML rules (parser → Gemini extract → fusion → section chunker → vector indexer → clause mapping → schema validation → eval → LLM reviewer → persist).
 
 ---
 
@@ -86,18 +86,26 @@ Purpose: convert PDFs into structured YAML tariff sections (e.g. 12-field `Tarif
 
 ```
 PDF Parser ──► Gemini Extract ──► Page Fusion ──► Section Chunker ──► Vector Indexer
-     │                │                  │                │                    │
-     ▼                ▼                  ▼                ▼                    ▼
-  Persist Rules ◄── REPAIR LOOP: Clause Mapping ──► Schema Validation ──► Ingestion Eval
-  (YAML + JSONL       (Gemini → YAML)   (Pydantic)      (vs golden)            │
-   + FAISS)                 ▲                │                │                │
-                            └── LLM Reviewer ◄────────────────┘ (confidence ≥ 0.8 → exit)
+                                                                           │
+                                                                           ▼
+                ┌─── REPAIR LOOP (up to 3 retries if confidence < 0.8) ───┐
+                │                                                          │
+                │  Clause Mapping ──► Schema Validation ──► Ingestion Eval │
+                │  (Gemini → YAML)     (Pydantic)           (vs golden)    │
+                │        ▲                                       │         │
+                │        └──────── LLM Reviewer ◄────────────────┘         │
+                │                  (confidence ≥ 0.8 → exit loop)          │
+                └──────────────────────────────────────────────────────────┘
+                                             │
+                                             ▼
+                                       Persist Rules
+                                    (YAML + JSONL + FAISS)
 ```
 
 | Node                        | Role                                                                                         |
 | --------------------------- | -------------------------------------------------------------------------------------------- |
 | **PDF Parser**        | PyMuPDF: per-page text and bounding boxes; output cached.                                    |
-| **Gemini Extract**    | Page as base64 PNG + OCR text → Gemini 2.5 Pro → structured Markdown (headers, tables).    |
+| **Gemini Extract** (`table_extract`)   | Page as base64 PNG + OCR text → Gemini 2.5 Pro → structured Markdown (headers, tables).    |
 | **Page Fusion**       | Merge Gemini + PDF text; Gemini primary; recover unmatched PDF lines; confidence scoring.    |
 | **Section Chunker**   | Split fused content by section headers (e.g. "1.1 LIGHT DUES"); preamble as section `"0"`. |
 | **Vector Indexer**    | Embed section chunks into FAISS (best-effort; continues if embedding unavailable).           |
@@ -127,19 +135,23 @@ mrca-ai-tariff/
 │   ├── ingestion/           # PDF parser, Gemini extract, page fusion, DAG
 │   ├── models/              # Pydantic schemas, tariff rule models
 │   └── services/            # Citation service, FAISS
-├── frontend/                # Next.js 16 app (React 19)
+├── frontend/                # Next.js 16 app (React 19, Tailwind CSS v4, shadcn/ui)
 │   ├── src/
 │   │   ├── app/             # App router, page
-│   │   ├── components/      # StructuredForm, ChatMode, BreakdownTable, PdfViewer, AuditPanel
+│   │   ├── components/      # StructuredForm, ChatMode, BreakdownTable, PdfViewer, AuditPanel, PromptsPanel
 │   │   └── lib/             # API client, types
 │   └── public/
+├── evals/                   # Ingestion evaluation (ingestion_eval.py)
+├── scripts/                 # CLI scripts (run_dag_e2e.py, run_extract.py, etc.)
 ├── storage/                 # Runtime data (created on first run)
 │   ├── audit/               # audit_log.jsonl
+│   ├── faiss/               # FAISS vector index (best-effort)
 │   ├── pdfs/                # Tariff PDFs
 │   └── yaml/                # tariff_rules_*.yaml
 ├── pipeline/                # YAML pipeline config and runner
 ├── tests/                   # Pytest (test_engine, test_api, verify_tasks)
-├── docs/                    # Additional documentation
+├── configs/                 # Additional configuration files
+├── output/                  # Cached intermediate outputs (gitignored)
 ├── docker-compose.yml
 ├── Dockerfile
 ├── Makefile
@@ -151,7 +163,7 @@ mrca-ai-tariff/
 ## Prerequisites
 
 - **Docker & Docker Compose** (for containerised run), or
-- **Python 3.11+** and **Node.js 18+** (for local dev)
+- **Python 3.11+** and **Node.js 20+** (for local dev)
 - For **Document Q&A**: a **Gemini API key** (see [Configuration](#configuration))
 
 ---
@@ -161,8 +173,8 @@ mrca-ai-tariff/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_ORG/mrca-ai-tariff.git
-cd mrca-ai-tariff
+git clone https://github.com/arbindsinghi-hash/Maritime-Rate-Calc.git
+cd Maritime-Rate-Calc
 ```
 
 ### 2. Environment variables
@@ -182,7 +194,7 @@ Required for **calculation only** (no chat):
 
 Required for **Document Q&A (chat)**:
 
-- `GEMINI_API_KEY` — Gemini 2.5 Flash for natural-language extraction.
+- `GEMINI_API_KEY` — Required. Used by Gemini 2.5 Pro (ingestion) and Gemini 2.5 Flash (chat NL extraction).
 - `GEMINI_API_BASE`, `GEMINI_CHAT_MODEL` — optional overrides (defaults in `.env.example`).
 
 See [Configuration](#configuration) for full list.
@@ -334,6 +346,8 @@ Base URL: `http://localhost:8000` (or your backend host). All API routes are und
 | `GET`  | `/api/v1/citations`                   | List all citations.                                                                                                                                                                                                          |
 | `GET`  | `/api/v1/tariff-pdf`                  | Full tariff PDF. Query:`filename` (default `Port Tariff.pdf`).                                                                                                                                                           |
 | `POST` | `/api/v1/ingest`                      | Trigger ingestion (PDF → YAML). Query:`file_path` or body: multipart file. Returns `job_id` / status (stub if DAG unavailable).                                                                                         |
+| `GET`  | `/api/v1/prompts/config`              | Whether the developer prompt panel is enabled (`ENABLE_PROMPT_PANEL`).                                                                                                                                                   |
+| `GET`  | `/api/v1/prompts`                     | List recorded LLM prompt interactions (user query, system prompt, raw response, parsed result/error). Only available when prompt panel is enabled.                                                                        |
 
 **CalculationRequest** (main fields):
 
@@ -351,17 +365,29 @@ Interactive API docs: **http://localhost:8000/docs**.
 
 ## Configuration
 
-| Variable                | Description                                | Default                                                      |
-| ----------------------- | ------------------------------------------ | ------------------------------------------------------------ |
-| `STORAGE_DIR`         | Base storage path                          | `./storage`                                                |
-| `YAML_DIR`            | Tariff YAML directory                      | `./storage/yaml`                                           |
-| `AUDIT_LOG_DIR`       | Audit JSONL directory                      | `./storage/audit`                                          |
-| `PDF_DIR`             | Tariff PDFs                                | `./storage/pdfs`                                           |
-| `GEMINI_API_KEY`      | Gemini API key (chat + optional ingestion) | —                                                           |
-| `GEMINI_API_BASE`     | Gemini API base URL                        | `https://generativelanguage.googleapis.com/v1beta/openai/` |
-| `GEMINI_CHAT_MODEL`   | Model for chat extraction                  | `gemini-2.5-flash`                                         |
-| `CORS_ORIGINS`        | Allowed origins (comma-separated)          | `*`                                                        |
-| `ENABLE_PROMPT_PANEL` | Developer prompt panel in UI               | `false`                                                    |
+| Variable                | Description                                          | Default                                                      |
+| ----------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| `STORAGE_DIR`         | Base storage path                                    | `./storage`                                                |
+| `YAML_DIR`            | Tariff YAML directory                                | `./storage/yaml`                                           |
+| `AUDIT_LOG_DIR`       | Audit JSONL directory                                | `./storage/audit`                                          |
+| `PDF_DIR`             | Tariff PDFs                                          | `./storage/pdfs`                                           |
+| `FAISS_INDEX_DIR`     | FAISS vector index directory                         | `./storage/faiss`                                          |
+| `GEMINI_API_KEY`      | Gemini API key (ingestion + chat)                    | —                                                           |
+| `GEMINI_API_BASE`     | Gemini API base URL                                  | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| `GEMINI_MODEL`        | Model for ingestion (VL extraction, clause mapping)  | `gemini-2.5-pro`                                           |
+| `GEMINI_CHAT_MODEL`   | Model for chat NL extraction                         | `gemini-2.5-flash`                                         |
+| `GEMINI_TIMEOUT`      | Per-page timeout for Gemini calls (seconds)          | `120`                                                      |
+| `LLM_API_BASE`        | LLM API base URL (optional, for gpt-oss)             | —                                                           |
+| `LLM_API_KEY`         | LLM API key (optional)                               | —                                                           |
+| `LLM_MODEL`           | LLM model (optional)                                 | `openai/gpt-oss-120b`                                     |
+| `LLM_TIMEOUT`         | LLM request timeout (seconds)                        | `300`                                                      |
+| `LLM_TEMPERATURE`     | LLM temperature                                      | `0.2`                                                      |
+| `LLM_TOP_P`           | LLM top-p                                            | `0.9`                                                      |
+| `EMBEDDING_API_BASE`  | Embedding endpoint base URL                          | —                                                           |
+| `EMBEDDING_API_KEY`   | Embedding API key                                    | —                                                           |
+| `EMBEDDING_MODEL`     | Embedding model                                      | `nvidia/llama-3.2-nv-embedqa-1b-v2`                       |
+| `CORS_ORIGINS`        | Allowed origins (comma-separated)                    | `*`                                                        |
+| `ENABLE_PROMPT_PANEL` | Developer prompt panel in UI                         | `false`                                                    |
 
 See `.env.example` for the full set (including optional LLM/EMBEDDING for ingestion).
 
